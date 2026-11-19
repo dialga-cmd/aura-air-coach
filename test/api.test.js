@@ -6,7 +6,6 @@ process.env.GEMINI_API_KEY = "";
 
 const { app, offlineAdvisor, buildImpactSummary, sanitizePlan } = require("../server/index");
 
-let server;
 let base;
 let listener;
 

@@ -18,7 +18,7 @@ test("chooses the region's official AQI standard", () => {
 
 test("India AQI uses six CPCB categories with correct ranges", () => {
   const meta = aqiMeta(209, "in");
-  assert.equal(meta.level || meta.name, "Poor");
+  assert.equal(meta.name, "Poor");
   assert.equal(meta.standard, "in");
   assert.equal(meta.shortLabel, "India AQI");
   assert.deepEqual(meta.scale.map((s) => s.name),

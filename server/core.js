@@ -221,6 +221,8 @@ const FIELD_LIMITS = Object.freeze({
 function cleanText(value, maxLength) {
   if (value == null) return "";
   return String(value)
+    // Deliberately strip C0/DEL control characters from untrusted input.
+    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001F\u007F]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -267,14 +269,11 @@ function rankGeocodeResults(results) {
   return (results || []).slice().sort((a, b) => score(b) - score(a));
 }
 
+// Only the public domain API is exported. Tables and internal helpers remain
+// private so callers cannot depend on implementation details.
 module.exports = {
-  // AQI
-  EPA_LEVELS, INDIA_LEVELS, EPA_BP, INDIA_BP,
-  aqiStandardFor, standardMeta, aqiFor, aqiMeta, ugM3ToMgM3,
-  // impact
-  IMPACT_FACTORS, IMPACT_RULES, buildImpact, INDOOR_HEPA_REDUCTION_PCT,
-  // validation
+  aqiStandardFor, aqiFor, aqiMeta, ugM3ToMgM3,
+  buildImpact, INDOOR_HEPA_REDUCTION_PCT,
   cleanText, parseCoordinate, validateProfile,
-  // geocoding
   rankGeocodeResults,
 };

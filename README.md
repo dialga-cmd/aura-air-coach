@@ -128,7 +128,7 @@ Response (abridged):
     "standardLabel": "India AQI (CPCB)", "shortLabel": "India AQI",
     "scale": [{"name":"Good","min":0,"max":50}, "..."],
     "dominantPollutant": "Ground-level Ozone",
-    "subIndices": {"pm25":203,"pm10":92,"ozone":209,"no2":20,"co":38},
+    "subIndices": {"pm2_5":203,"pm10":92,"ozone":209,"no2":20,"co":38},
     "poll": {"pm2_5":67.3,"ozone":172},
     "bestWindows": [{"hour":"12-16","pm25":55.3}]
   },
@@ -147,19 +147,35 @@ uses them for its status pill and footer instead of assuming Gemini ran.
 
 ### Project layout
 
+The server follows single responsibility: `index.js` is only the HTTP wiring.
+
 ```
 challenge-6/
 ├─ server/
-│  ├─ index.js       # Express routes, live-data adapters, Gemini + offline advisor
-│  ├─ core.js        # PURE logic: AQI standards, impact math, validation (unit-tested)
-│  └─ dotenv.js      # dependency-free .env loader
+│  ├─ index.js            # Express wiring, routes and response shaping (~170 lines)
+│  ├─ core.js             # PURE domain logic: AQI, impact math, validation
+│  ├─ config.js           # env + tuning constants, single load of .env
+│  ├─ cache.js            # TTL caches and fixed-window rate limiter
+│  ├─ errors.js           # typed errors + one client-error mapper
+│  ├─ pollutants.js       # canonical pollutant vocabulary / layer mappings
+│  ├─ live-data.js        # Open-Meteo adapters and derived AQI helpers
+│  ├─ gemini.js           # prompt, JSON parsing, model retry/fallback
+│  ├─ offline-advisor.js  # table-driven rule-based plan
+│  ├─ impact.js           # plan sanitisation + shared impact contract
+│  ├─ dotenv.js           # dependency-free .env loader
+│  └─ vercel-handler.js   # shared serverless adapter
+├─ api/
+│  ├─ health.js           # re-exports the shared handler
+│  └─ plan.js             # re-exports the shared handler
 ├─ public/
-│  ├─ index.html    # semantic markup, skip link, aria-live regions
-│  ├─ style.css     # light "climate console" theme, focus rings, reduced-motion
-│  └─ app.js         # typed-city flow, fetch, safe DOM rendering
+│  ├─ index.html          # semantic markup, skip link, aria-live regions
+│  ├─ style.css           # light "climate console" theme, focus + reduced-motion
+│  └─ app.js              # typed-city flow and safe, split DOM renderers
 ├─ test/
-│  ├─ core.test.js  # AQI breakpoints, impact math, validation
-│  └─ api.test.js   # HTTP contract, sanitisation, offline advisor
+│  ├─ core.test.js        # AQI breakpoints, impact math, validation
+│  ├─ api.test.js         # HTTP contract, sanitisation, offline advisor
+│  └─ modules.test.js     # JSON parsing, window math, cache, limiter, errors
+├─ eslint.config.js       # flat ESLint config (server + browser + tests)
 ├─ .env.example
 ├─ package.json
 └─ README.md
@@ -200,13 +216,18 @@ challenge-6/
 - **Efficiency:** geocoding cached for 24h, live conditions for 10 min, both in
   size-bounded TTL caches; a per-IP fixed-window limit protects the free quota;
   all outbound calls have timeouts; zero client-side dependencies/build step.
-- **Testing:** `npm test` runs **20 `node:test` tests** covering AQI standard
+- **Code quality:** focused single-purpose modules with an HTTP-only composition
+  root, typed errors mapped in one place, one shared impact mapping for both
+  engines, named constants instead of magic numbers, and ESLint (`npm run lint`).
+- **Testing:** `npm test` runs **32 `node:test` tests** covering AQI standard
   selection, breakpoint gap boundaries, category ranges, input validation,
-  deduplicated impact math, sanitisation, HTTP error contract and both offline
-  advisor branches. Tests need no network and no API key.
+  deduplicated impact math, sanitisation, HTTP error contract, both offline
+  advisor branches, JSON parsing, cleanest-hour math, cache eviction and the
+  rate limiter. Tests need no network and no API key.
 
 ```bash
 npm test
+npm run lint
 ```
 
 - **Accessibility:** semantic headings/labels, skip link, visible
