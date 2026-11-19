@@ -37,6 +37,12 @@ test("GET / serves the app", async () => {
   assert.match(await res.text(), /AURA/);
 });
 
+test("CORS preflight is handled for cross-origin API hosting", async () => {
+  const res = await fetch(`${base}/api/plan`, { method: "OPTIONS" });
+  assert.equal(res.status, 204);
+  assert.equal(res.headers.get("access-control-allow-origin"), "*");
+});
+
 test("POST /api/plan rejects missing or invalid locations", async () => {
   for (const body of [{}, { locationName: "  " }, { lat: 999, lon: 0 }]) {
     const res = await fetch(`${base}/api/plan`, {

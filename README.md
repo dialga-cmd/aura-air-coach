@@ -69,6 +69,23 @@ npm start                     # http://localhost:3000
 A key is **optional**: without one the offline advisor runs. Get a free key at
 <https://aistudio.google.com/> (no card required).
 
+### Deploying on Vercel
+
+The repo includes `api/health.js` and `api/plan.js`, thin serverless wrappers
+around the same Express app, so Vercel serves both the static UI and the API.
+Set these project settings:
+
+- **Framework:** Other / no framework
+- **Output directory:** `public` (so `/` serves `public/index.html`)
+- **Environment variables:** `GEMINI_API_KEY`, and `GEMINI_TIMEOUT_MS=8000`
+  if you are on the Hobby plan's ~10 s function limit
+
+Push to `main` and Vercel rebuilds automatically. If you instead host the UI as
+pure static files elsewhere, append `?api=https://your-backend.example` to the
+page URL (or set `window.AURA_API_BASE`) to point it at a separately deployed
+backend. The browser shows a clear "API unavailable" message instead of a JSON
+parse error if that backend is missing.
+
 ### Model selection
 
 Default: **`gemini-3.5-flash-lite`** with a generous free tier (Google's limits

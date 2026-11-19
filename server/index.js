@@ -24,15 +24,29 @@ const {
 loadEnv(".env"); // loads GEMINI_API_KEY etc. from a local .env (real env still wins)
 
 const app = express();
-app.use(express.json({ limit: "16kb" }));
+// Vercel's Node runtime may pre-parse JSON into req.body. Don't consume the
+// stream twice; local Express requests are parsed normally.
+const parseJson = express.json({ limit: "16kb" });
+app.use((req, res, next) => {
+  if (typeof req.body === "string") {
+    try { req.body = JSON.parse(req.body); } catch { req.body = undefined; }
+  }
+  if (req.body !== undefined) return next();
+  return parseJson(req, res, next);
+});
 app.use((req, res, next) => {
   // Small, dependency-free hardening headers (no extra package needed).
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Access-Control-Allow-Origin", process.env.CORS_ORIGIN || "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Content-Security-Policy",
     "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-    "font-src 'self' https://fonts.gstatic.com; script-src 'self'; connect-src 'self'; base-uri 'self'; frame-ancestors 'none'");
+    "font-src 'self' https://fonts.gstatic.com; script-src 'self'; connect-src 'self' https: http://localhost:*; " +
+    "base-uri 'self'; frame-ancestors 'none'");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
 app.use(express.static(path.join(__dirname, "..", "public")));
@@ -49,7 +63,8 @@ const GEMINI_FALLBACKS = [
   "gemini-3.1-flash-lite",
 ];
 const UPSTREAM_TIMEOUT_MS = 8000;
-const GEMINI_TIMEOUT_MS = 20000;
+// Vercel Hobby functions have a ~10s limit; set GEMINI_TIMEOUT_MS=8000 there.
+const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS) || 20000;
 const CONDITIONS_TTL_MS = 10 * 60 * 1000; // live data changes slowly; protect free quota
 const GEOCODE_TTL_MS = 24 * 60 * 60 * 1000;
 const RATE_WINDOW_MS = 10 * 60 * 1000;

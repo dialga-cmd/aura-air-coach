@@ -23,12 +23,37 @@ const GAUGE_LEN = Math.PI * 96;
 els.gaugeFill.style.strokeDasharray = GAUGE_LEN;
 els.gaugeFill.style.strokeDashoffset = GAUGE_LEN;
 
+// Static hosts cannot run the Express API. Point the UI at a deployed backend
+// with ?api=https://your-backend.example or window.AURA_API_BASE before app.js.
+const API_BASE = (new URLSearchParams(location.search).get("api") || window.AURA_API_BASE || "")
+  .replace(/\/+$/, "");
+
+/** Never let an HTML 404 page surface as a raw JSON parse error. */
+async function apiJson(path, options) {
+  const url = API_BASE + path;
+  const res = await fetch(url, options);
+  const type = res.headers.get("content-type") || "";
+  const body = await res.text();
+  let data;
+  try {
+    data = JSON.parse(body);
+  } catch {
+    throw new Error(
+      res.ok
+        ? "The server returned an unexpected response. Check that the API is deployed."
+        : `API unavailable (HTTP ${res.status}). Check that the backend is running.`
+    );
+  }
+  if (!res.ok) throw new Error(data.error || `Request failed (HTTP ${res.status})`);
+  return data;
+}
+
 // --- engine status pill ---
 // The health endpoint deliberately hides key presence. The pill only reports
 // the engine that actually produced a plan, set in render() from the response.
 (async () => {
   try {
-    const h = await (await fetch("/api/health")).json();
+    const h = await apiJson("/api/health");
     els.engineText.textContent = "Ready";
     els.engine.title = `Default model: ${h.model || "configured model"}`;
   } catch {
@@ -103,11 +128,9 @@ async function generate() {
   els.loading.hidden = false;
 
   try {
-    const r = await fetch("/api/plan", {
+    const d = await apiJson("/api/plan", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(req),
     });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || "Request failed");
     render(d);
   } catch (e) {
     els.errCard.hidden = false;
